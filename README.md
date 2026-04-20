@@ -29,13 +29,31 @@ This project bridges the gap by building a complete **Explainable AI (XAI)** sys
 
 A clean, responsive interface designed specifically for rapid clinical review.
 
-| Step 1: Upload Panel | Step 2: Image Selection |
-| :---: | :---: |
-| <img src="media__1776495229925.png" width="400"> | <img src="media__1776495229843.png" width="400"> |
+<div align="center">
+  <img src="media__1776495229925.png" width="800">
+  <p><b>Step 1:</b> Drag-and-drop landing page for image upload.</p>
+</div>
 
-| Step 3: Fast Pipeline Processing | Step 4: Final Diagnostic Report (XAI) |
-| :---: | :---: |
-| <img src="media__1776495229781.png" width="400"> | <img src="media__1776495229950.png" width="400"> |
+<br>
+
+<div align="center">
+  <img src="media__1776495229843.png" width="800">
+  <p><b>Step 2:</b> The user selects a dermoscopy image from their device.</p>
+</div>
+
+<br>
+
+<div align="center">
+  <img src="media__1776495229781.png" width="800">
+  <p><b>Step 3:</b> The backend processes the image through the segmentation and Grad-CAM pipeline.</p>
+</div>
+
+<br>
+
+<div align="center">
+  <img src="media__1776495229950.png" width="800">
+  <p><b>Step 4:</b> Results displayed with predicted mask, heatmap overlay, and natural language explanation for clinical review.</p>
+</div>
 
 ## 📊 Model Performance
 
