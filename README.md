@@ -37,14 +37,14 @@ A clean, responsive interface designed specifically for rapid clinical review.
 <br>
 
 <div align="center">
-  <img src="media__1776495229781.png" width="800">
+  <img src="media__1776495229925.png" width="800">
   <p><b>Step 2:</b> The user selects a dermoscopy image from their device.</p>
 </div>
 
 <br>
 
 <div align="center">
-  <img src="media__1776495229843.png" width="800">
+  <img src="media__1776495229781.png" width="800">
   <p><b>Step 3:</b> The backend processes the image through the segmentation and Grad-CAM pipeline.</p>
 </div>
 
