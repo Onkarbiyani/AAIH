@@ -4,7 +4,7 @@ import numpy as np
 from tqdm import tqdm
 
 from dataset import get_dataloader
-from model import UNet
+from skin_lesion_xai.model import UNet
 
 def calculate_metrics(pred, target):
     """

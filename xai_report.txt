@@ -2,10 +2,10 @@
 Image: ISIC_0000003.jpg
 --------------------------------------------------
 [Segmentation Findings]
-The model identified a large lesion covering 35.3% of the image area in the central region of the input dermoscopy image.
+The model identified a large lesion covering 34.7% of the image area in the central region of the input dermoscopy image.
 
 [Model Attention]
-The Grad-CAM saliency map shows broadly distributed, high-intensity activations, centrally concentrated. There is strong overlap between activations and the predicted lesion boundary.
+The Grad-CAM saliency map shows focal and concentrated, high-intensity activations, centrally concentrated. There is strong overlap between activations and the predicted lesion boundary.
 
 [Clinical Interpretation]
 The saliency pattern closely aligns with the predicted segmentation boundary, suggesting the model is correctly attending to intrinsic lesion features such as pigmentation, texture irregularities, and structural borders.

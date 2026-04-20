@@ -10,9 +10,9 @@ import matplotlib.pyplot as plt
 from PIL import Image
 
 from dataset import ISICDataset
-from model import UNet
-from explainability import get_cam_image
-from explanation import generate_natural_language_explanation
+from skin_lesion_xai.model import UNet
+from skin_lesion_xai.explainability import get_cam_image
+from skin_lesion_xai.explanation import generate_natural_language_explanation
 
 def run_inference(image_path, model_path='best_unet_model.pth'):
     if not os.path.exists(image_path):

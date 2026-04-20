@@ -6,7 +6,7 @@ import torch.optim as optim
 from tqdm import tqdm
 
 from dataset import get_dataloader, ISICDataset
-from model import UNet, DiceBCELoss
+from skin_lesion_xai.model import UNet, DiceBCELoss
 
 def calculate_dice(pred, target, smooth=1e-5):
     """
