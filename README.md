@@ -30,7 +30,7 @@ This project bridges the gap by building a complete **Explainable AI (XAI)** sys
 A clean, responsive interface designed specifically for rapid clinical review.
 
 <div align="center">
-  <img src="media__1776495229925.png" width="800">
+  <img src="media__1776495230031.png" width="800">
   <p><b>Step 1:</b> Drag-and-drop landing page for image upload.</p>
 </div>
 
