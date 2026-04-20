@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Explainable AI - Skin Lesion Diagnostics</title>
+    <!-- Google Fonts for Modern Typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="glass-background"></div>
+    
+    <main class="container">
+        <header>
+            <div class="brand">
+                <span class="icon">🔬</span>
+                <h1>DermatoAI Diagnostics</h1>
+            </div>
+            <p class="subtitle">Explainable U-Net Segmentation & Grad-CAM Analysis</p>
+        </header>
+
+        <section class="upload-section">
+            <div id="drop-zone" class="drop-zone">
+                <div class="drop-zone-content">
+                    <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                    <h3>Drag & Drop a Medical Image</h3>
+                    <p>or click to browse local files (JPG/PNG)</p>
+                </div>
+                <input type="file" id="file-input" accept="image/png, image/jpeg" hidden>
+            </div>
+        </section>
+
+        <!-- Loading State -->
+        <div id="loading-spinner" class="spinner-container hidden">
+            <div class="loader"></div>
+            <p>Analyzing morphology and generating heatmaps...</p>
+        </div>
+
+        <!-- Results Dashboard -->
+        <section id="results-dashboard" class="results-dashboard hidden">
+            <div class="image-grid">
+                <div class="card">
+                    <h4>Original Image</h4>
+                    <img id="img-original" src="" alt="Original Skin Lesion">
+                </div>
+                <div class="card">
+                    <h4>AI Mask Prediction</h4>
+                    <img id="img-mask" src="" alt="Predicted Binary Mask">
+                </div>
+                <div class="card highlight-card">
+                    <h4>Grad-CAM Focus Heatmap</h4>
+                    <img id="img-heatmap" src="" alt="Explainability Heatmap">
+                </div>
+            </div>
+
+            <div class="analysis-panel card">
+                <h4>AI Diagnostic Narrative</h4>
+                <div class="narrative-content">
+                    <p id="narrative-text"></p>
+                    <div class="disclaimer-alert">
+                        <strong>*** STRICT MEDICAL DISCLAIMER ***</strong><br>
+                        This is an AI-assisted diagnostic analysis generated solely based on localized visual patterns identified by a convolutional neural network. It has not evaluated clinical history, tactile feedback, or dermoscopic variance. This visual analysis MUST NOT be used as a primary diagnosis and MUST strictly be reviewed and verified by a board-certified dermatologist or qualified medical professional.
+                    </div>
+                </div>
+            </div>
+            
+            <button id="reset-btn" class="btn-primary">Analyze Another Image</button>
+        </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

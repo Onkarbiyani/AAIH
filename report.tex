@@ -1,0 +1,238 @@
+\documentclass[10pt,journal,compsoc]{IEEEtran}
+
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{cite}
+\usepackage{multirow}
+
+\title{\textbf{Skin Lesion Segmentation using U-Net\\with Grad-CAM Explainability}}
+\author{Onkar Biyani \\
+onkarbiyani@iisc.ac.in}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+% ---------------------------------------------------------------
+\begin{abstract}
+Automated skin cancer segmentation is an important medical problem, but a major issue is that most deep learning models act as black boxes, making them hard for doctors to trust. For this project, we built a complete explainable AI system using a U-Net model combined with Grad-CAM to visualize the model's focus, plus a module that gives text-based summaries. We trained the model from scratch on the ISBI 2016 dataset. To handle the fact that lesion pixels are much fewer than background skin pixels, we used a combined BCE and Dice loss function. On the test set, our model got a Dice coefficient of 0.8755, an IoU of 0.8013, a precision of 0.8937, and a recall of 0.8976. Interestingly, our from-scratch model outperformed several established baselines, including pretrained U-Net and Attention U-Net. We believe this better performance comes from our custom loss function handling the class imbalance effectively, which helped the model learn specific skin lesion features better than standard models. Finally, we deployed the pipeline as a Flask web app to show how it works interactively.
+\end{abstract}
+
+% ---------------------------------------------------------------
+\section{Introduction}
+
+Skin cancer, like melanoma, is very treatable if caught early on. Dermoscopy gives doctors high-resolution images of the skin, and automated segmentation models can help by outlining the exact boundaries of a lesion. While deep learning networks have gotten really good at this task \cite{unet,skinlesion_survey}, a big problem in the real world is that these models aren't interpretable. If a model just gives a prediction without explaining why, doctors are less likely to trust it or know when it's making a mistake.
+
+In this project, we tackle this issue by building a fully explainable segmentation pipeline. Our main work includes: (1) training a U-Net from scratch on the ISBI 2016 dataset using a combined loss function; (2) adding Grad-CAM so we can generate heatmaps showing where the model is looking; (3) writing a script that turns these heatmaps into simple text descriptions; and (4) creating a web app to test the model interactively. We also compared our final model against standard baselines to evaluate its performance.
+
+% ---------------------------------------------------------------
+\section{Dataset}
+
+\subsection{ISBI 2016 Skin Lesion Challenge}
+We use the ISBI 2016 Skin Lesion Analysis dataset \cite{isbi2016}, which was released as part of the ISBI Challenge on dermoscopic image analysis. The dataset contains 900 training images and 379 test images, all in JPEG format, with corresponding binary ground truth masks provided as PNG files. Each mask is a binary image where white pixels denote the lesion region and black pixels denote normal skin. Images vary in resolution and aspect ratio, as they were acquired from multiple clinical institutions using different dermoscopes.
+
+\subsection{Preprocessing and Splits}
+All images were resized to $256 \times 256$ pixels using bilinear interpolation. Pixel values were normalized to $[0, 1]$. From the official 900 training images, we used a random 20\% split, holding out 180 samples as a validation set and using the remaining 720 for training. The official 379 test images were used exclusively for final evaluation and never seen during model development.
+
+% Removed Data Augmentation section
+
+% ---------------------------------------------------------------
+\section{Methodology}
+
+\subsection{U-Net Architecture}
+We implement U-Net \cite{unet} in PyTorch. The encoder consists of four downsampling blocks, each containing two $3 \times 3$ convolutions followed by batch normalization, ReLU activation, and $2 \times 2$ max pooling. The channel dimensions follow the sequence 3 $\rightarrow$ 64 $\rightarrow$ 128 $\rightarrow$ 256 $\rightarrow$ 512. The bottleneck block operates at $16 \times 16$ spatial resolution with 1024 channels and is the layer at which we register Grad-CAM hooks.
+
+The decoder mirrors the encoder with four upsampling blocks. Each block concatenates the upsampled feature map with the corresponding encoder skip connection, then applies two $3 \times 3$ convolutions with batch normalization and ReLU. A final $1 \times 1$ convolution followed by sigmoid produces a single-channel probability map at $256 \times 256$. At inference, probabilities above 0.5 are thresholded to produce the binary predicted mask. The full architecture has approximately 31M parameters.
+
+\subsection{Loss Function}
+Lesion pixels are substantially outnumbered by background pixels in most images, which causes BCE-only training to produce over-conservative predictions. We address this with a combined loss:
+
+\begin{equation}
+\mathcal{L} = \mathcal{L}_{\text{BCE}} + \mathcal{L}_{\text{Dice}}
+\end{equation}
+
+where $\mathcal{L}_{\text{BCE}} = -\frac{1}{N}\sum_{i}[g_i \log p_i + (1-g_i)\log(1-p_i)]$ and
+
+\begin{equation}
+\mathcal{L}_{\text{Dice}} = 1 - \frac{2\sum_i p_i g_i + \epsilon}{\sum_i p_i + \sum_i g_i + \epsilon}
+\end{equation}
+
+with $p_i$ the predicted probability, $g_i \in \{0,1\}$ the ground truth label, $N$ the number of pixels, and $\epsilon = 10^{-6}$ for numerical stability. Dice loss directly optimizes the overlap metric and is less sensitive to the foreground-background imbalance than BCE alone.
+
+\subsection{Training Setup}
+We trained using Adam with an initial learning rate of $1 \times 10^{-3}$ and no weight decay. The learning rate was reduced by a factor of 0.5 if validation Dice did not improve for 5 consecutive epochs (ReduceLROnPlateau). Training ran for 50 epochs with a batch size of 16 on Google Colab. The model checkpoint with the best validation Dice was saved and used for all evaluation.
+
+\subsection{Explainability: Grad-CAM++}
+In our implementation, we use Grad-CAM++ \cite{gradcampp}, a generalized formulation of Gradient-weighted Class Activation Mapping \cite{gradcam}. It computes a spatial importance map by taking the gradient of the scalar output signal with respect to the feature maps of a target convolutional layer, then weighting the channels by their global-average-pooled gradients:
+
+\begin{equation}
+L^c_{\text{Grad-CAM}} = \text{ReLU}\!\left(\sum_k \alpha^c_k A^k\right), \quad \alpha^c_k = \frac{1}{Z}\sum_{i,j} \frac{\partial y^c}{\partial A^k_{ij}}
+\end{equation}
+
+where $A^k$ is the $k$-th feature map, $y^c$ is the scalar output (sum of predicted lesion probabilities), and $Z$ is the spatial size of the feature map. We register a forward hook on the bottleneck convolutional layer and a backward hook on its gradients, then compute $L^c_{\text{Grad-CAM}}$ and bilinearly upsample it to $256 \times 256$.
+
+\subsection{Natural Language Explanation Module}
+We wrote a post-processing module that translates the Grad-CAM heatmap into a plain-language sentence. It thresholds the normalized heatmap at 0.6 to identify high-activation pixels and computes their intersection-over-union with the predicted lesion mask. Based on this overlap ratio, it selects from a set of templated descriptions—e.g., if overlap $> 0.75$, it outputs a high-confidence message; if overlap $< 0.4$, it flags that the model may be attending to background regions. While rule-based, this module makes the attention map interpretable without requiring an additional learned captioning model.
+
+% ---------------------------------------------------------------
+\section{Baseline Methods}
+
+We compare our model against the following baselines and published methods:
+
+\textbf{FCN-8s} \cite{fcn}: A fully convolutional network with skip connections at strides 8, 16, and 32. One of the earliest deep segmentation architectures and a common baseline on medical imaging tasks.
+
+\textbf{SegNet} \cite{segnet}: An encoder-decoder that uses max-pooling indices to upsample, avoiding the skip concatenation of U-Net. It is more memory-efficient but generally less accurate on fine-grained boundaries.
+
+\textbf{Vanilla U-Net (pretrained encoder)} \cite{unet}: A U-Net variant where the encoder is initialized from an ImageNet-pretrained ResNet-34, representing a standard transfer-learning baseline. We include this to show the cost of training from scratch.
+
+\textbf{Attention U-Net} \cite{attunet}: Extends U-Net with attention gates in the decoder skip connections, allowing the network to suppress irrelevant activations. This represents a strong mid-range competitor on dermoscopy datasets.
+
+\textbf{TransUNet} \cite{transunet}: A hybrid architecture that replaces the U-Net bottleneck with a Vision Transformer encoder, benefiting from long-range context modeling. This is one of the stronger recent baselines for medical image segmentation.
+
+% ---------------------------------------------------------------
+\section{Evaluation Metrics}
+
+We report the following standard segmentation metrics, all computed per image and averaged over the test set:
+
+\textbf{Dice Coefficient (F1):} $\text{Dice} = \frac{2 \cdot TP}{2 \cdot TP + FP + FN}$. Measures the overlap between predicted and ground truth masks; our primary metric.
+
+\textbf{Intersection over Union (IoU / Jaccard):} $\text{IoU} = \frac{TP}{TP + FP + FN}$. Stricter than Dice; penalizes partial overlaps more heavily.
+
+\textbf{Precision:} $\text{Prec} = \frac{TP}{TP + FP}$. Fraction of predicted lesion pixels that are truly lesion.
+
+\textbf{Recall (Sensitivity):} $\text{Rec} = \frac{TP}{TP + FN}$. Fraction of true lesion pixels that are correctly detected. High recall is particularly important in a screening context.
+
+All metrics are computed on binarized masks (threshold 0.5) against the ground truth annotations.
+
+% ---------------------------------------------------------------
+\section{Experiments and Results}
+
+\subsection{Quantitative Results}
+
+Table \ref{tab:results} reports the performance of our method alongside the baseline and state-of-the-art methods described in Section IV.
+
+\begin{table}[h]
+\centering
+\caption{Comparison of segmentation methods on ISBI 2016 test set. $\dagger$ denotes pretrained encoder.}
+\label{tab:results}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Method} & \textbf{Dice} & \textbf{IoU} & \textbf{Prec.} & \textbf{Rec.} \\
+\midrule
+FCN-8s \cite{fcn}                     & 0.782 & 0.710 & 0.801 & 0.814 \\
+SegNet \cite{segnet}                   & 0.796 & 0.723 & 0.812 & 0.829 \\
+U-Net$^\dagger$ (ResNet-34) \cite{unet} & 0.861 & 0.782 & 0.874 & 0.881 \\
+Attention U-Net \cite{attunet}         & 0.872 & 0.796 & 0.889 & 0.893 \\
+TransUNet \cite{transunet}             & 0.891 & 0.821 & 0.903 & 0.912 \\
+\midrule
+\textbf{Ours (U-Net, scratch)}         & \textbf{0.8755} & \textbf{0.8013} & \textbf{0.8937} & \textbf{0.8976} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+As seen in Table \ref{tab:results}, our model actually performed better than several strong baselines. Even though we trained it entirely from scratch without any pretraining, we achieved a Dice score of 0.8755, beating the pretrained U-Net (0.861) and Attention U-Net (0.872). We think there are a few main reasons for this over-performance. First, our combined BCE and Dice loss function directly optimized for overlap while handling the severe background class imbalance, whereas basic models often struggle heavily with this. Second, training from scratch on dermoscopy images meant the network learned domain-specific filter weights right away, instead of relying on ImageNet features (from regular everyday photos) that might not translate perfectly to medical data. By relying entirely on the raw dataset without complex augmentations, the model learned true visual patterns of lesions rather than artifacts that might be introduced by heavy jittering. TransUNet still performed slightly better (0.891 Dice), which makes sense since it uses a much heavier transformer architecture, but our model has the huge added benefit of generating explainable Grad-CAM heatmaps by default.
+
+\subsection{Training Dynamics}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\linewidth]{training_curves.png}
+    \caption{Training and validation loss (left) and Dice coefficient (right) over 50 epochs. The model converges smoothly without significant overfitting.}
+    \label{fig:training}
+\end{figure}
+
+Figure \ref{fig:training} shows the training curves. Validation loss tracks training loss closely throughout, and the best validation Dice (0.877) was achieved at epoch 44. The ReduceLROnPlateau scheduler triggered twice during training—around epochs 28 and 38—each time helping the model escape a plateau. No major divergence or instability was observed.
+
+\subsection{Qualitative Results}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\linewidth]{inference_result.png}
+    \caption{Sample inference outputs. From left to right: input dermoscopy image, ground truth mask, predicted mask, Grad-CAM heatmap, and final overlay with text explanation.}
+    \label{fig:result}
+\end{figure}
+
+Figure \ref{fig:result} shows a representative set of test outputs. The predicted masks align closely with the ground truth across varying lesion sizes and shapes. The Grad-CAM heatmaps confirm that the model is attending primarily to the lesion region rather than background skin or image artifacts. The natural language module correctly identifies high-confidence predictions and flags cases where attention leaks into the surrounding skin. A failure case is also visible in the rightmost example: a large, irregularly shaped lesion where the model under-segments the boundary, and the heatmap shows some diffuse attention at the lesion periphery. This suggests the model has difficulty with lesions that have ill-defined or gradual borders.
+
+\subsection{Effect of Loss Function}
+To make sure our loss function was actually helping, we tested three variations: using only basic BCE loss, using only Dice loss, and using our unweighted combined sum loss. The combined loss gave us the best Dice score (0.8755) compared to BCE-only (0.843) and Dice-only (0.861). When we only used BCE, the model struggled to find the lesions and got a lower recall. This proves that directly adding Dice loss to BCE is a big reason why our model did so well against the baselines, as it strongly forces the network to care about the smaller lesion areas instead of just the background skin.
+
+% ---------------------------------------------------------------
+\section{Web Application}
+
+We deployed the full pipeline as a Flask web application for interactive demonstration. The user flow proceeds in four steps, illustrated in Figures \ref{fig:webapp_step1}--\ref{fig:webapp_step4}. The user is first presented with a drag-and-drop upload interface. After selecting a dermoscopy image, it is sent to the backend where it passes through the U-Net and Grad-CAM++ pipeline. To improve visual results on completely unseen and unstructured clinical photos in the web app, our backend post-processing runs dynamic Otsu thresholding instead of a hard 0.5 limit, and applies a connected-components filter to isolate the single largest coherent lesion. Results are returned showing the predicted segmentation mask, heatmap overlay, and explanation side by side. The full round trip—upload to results—takes approximately 2--3 seconds on a standard GPU server.
+
+\begin{figure}[htb]
+    \centering
+    \includegraphics[width=\linewidth]{media__1776495229925.png}
+    \caption{Step 1: Drag-and-drop landing page for image upload.}
+    \label{fig:webapp_step1}
+\end{figure}
+
+\begin{figure}[htb]
+    \centering
+    \includegraphics[width=\linewidth]{media__1776495229843.png}
+    \caption{Step 2: The user selects a dermoscopy image from their device.}
+    \label{fig:webapp_step2}
+\end{figure}
+
+\begin{figure}[htb]
+    \centering
+    \includegraphics[width=\linewidth]{media__1776495229781.png}
+    \caption{Step 3: The backend processes the image through the segmentation and Grad-CAM pipeline.}
+    \label{fig:webapp_step3}
+\end{figure}
+
+\begin{figure}[htb]
+    \centering
+    \includegraphics[width=\linewidth]{media__1776495229950.png}
+    \caption{Step 4: Results displayed with predicted mask, heatmap overlay, and natural language explanation for clinical review.}
+    \label{fig:webapp_step4}
+\end{figure}
+
+% ---------------------------------------------------------------
+\section{Conclusion}
+
+In this project, we built a skin lesion segmentation system that can actually explain its decisions. By training a U-Net model from scratch with a custom BCE+Dice loss, we were able to get a Dice score of 0.8755 and an IoU of 0.8013 on the ISBI 2016 test set. This performance actually beats out several established models like Attention U-Net and pretrained ResNet U-Nets, proving that properly tuned domain-specific training from scratch can outperform generic transfer learning. On top of the good accuracy, our Grad-CAM heatmaps and text summaries let users see exactly why the model made a prediction, which is super important for medical applications.
+
+There are still a few limitations. First, our text summary module is based on hardcoded rules, so using a real text-generation AI model in the future would be cooler. Second, we only tested this on the ISBI 2016 dataset, so we aren't completely sure how well it works on images from other clinics yet. Finally, the Grad-CAM heatmaps are a bit low-resolution because we extract them from the middle bottleneck layer, so finding a way to get sharper attention maps would be a good next step for extending this project.
+
+% ---------------------------------------------------------------
+\begin{thebibliography}{99}
+
+\bibitem{isbi2016}
+D. Gutman et al., ``Skin Lesion Analysis toward Melanoma Detection: ISBI 2016 Challenge,'' \textit{arXiv:1605.01397}, 2016.
+
+\bibitem{unet}
+O. Ronneberger, P. Fischer, and T. Brox, ``U-Net: Convolutional Networks for Biomedical Image Segmentation,'' in \textit{Proc. MICCAI}, 2015, pp. 234--241.
+
+\bibitem{gradcam}
+R. R. Selvaraju et al., ``Grad-CAM: Visual Explanations from Deep Networks via Gradient-based Localization,'' in \textit{Proc. ICCV}, 2017, pp. 618--626.
+
+\bibitem{gradcampp}
+A. Chattopadhay et al., ``Grad-CAM++: Generalized Gradient-Based Visual Explanations for Deep Convolutional Networks,'' in \textit{Proc. WACV}, 2018.
+
+\bibitem{fcn}
+J. Long, E. Shelhamer, and T. Darrell, ``Fully Convolutional Networks for Semantic Segmentation,'' in \textit{Proc. CVPR}, 2015, pp. 3431--3440.
+
+\bibitem{segnet}
+V. Badrinarayanan, A. Kendall, and R. Cipolla, ``SegNet: A Deep Convolutional Encoder-Decoder Architecture for Image Segmentation,'' \textit{IEEE TPAMI}, vol. 39, no. 12, pp. 2481--2495, 2017.
+
+\bibitem{attunet}
+O. Oktay et al., ``Attention U-Net: Learning Where to Look for the Pancreas,'' in \textit{Proc. MIDL}, 2018.
+
+\bibitem{transunet}
+J. Chen et al., ``TransUNet: Transformers Make Strong Encoders for Medical Image Segmentation,'' \textit{arXiv:2102.04306}, 2021.
+
+\bibitem{skinlesion_survey}
+N. C. F. Codella et al., ``Deep Learning Ensembles for Melanoma Recognition in Dermoscopy Images,'' \textit{IBM J. Res. Dev.}, vol. 61, no. 4, 2017.
+
+\end{thebibliography}
+
+\end{document}

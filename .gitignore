@@ -1,0 +1,23 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# PyTorch Model Checkpoints
+*.pth
+*.pt
+
+# Datasets
+ISBI2016_ISIC_Part1_*/
+
+# Virtual environments
+venv/
+env/
+.env
+
+# Images / Media (Generated output)
+# Note: Keeping the small media files for the README / Report, but typically we wouldn't commit large datasets.
+
+# OS specific
+.DS_Store
+Thumbs.db

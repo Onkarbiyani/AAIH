@@ -1,0 +1,18 @@
+=== XAI Report - Grad-CAM Analysis ===
+Image: ISIC_0000003.jpg
+--------------------------------------------------
+[Segmentation Findings]
+The model identified a large lesion covering 35.3% of the image area in the central region of the input dermoscopy image.
+
+[Model Attention]
+The Grad-CAM saliency map shows broadly distributed, high-intensity activations, centrally concentrated. There is strong overlap between activations and the predicted lesion boundary.
+
+[Clinical Interpretation]
+The saliency pattern closely aligns with the predicted segmentation boundary, suggesting the model is correctly attending to intrinsic lesion features such as pigmentation, texture irregularities, and structural borders.
+
+[Confidence Assessment]
+Overall model confidence is Low. Low average confidence detected. The segmentation should be treated with caution and may benefit from a human-in-the-loop review.
+
+[Disclaimer]
+This is an AI-assisted analysis intended to support - not replace - clinical judgement.
+All findings should be reviewed by a qualified dermatologist.
